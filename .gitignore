@@ -1,0 +1,48 @@
+# Secrets
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# Backups
+*.backup
+*.tar.gz
+*.zip
+
+# Old/checkpoint Python files
+*.before_*
+*_checkpoint_*.py
+*_before_*.py
+
+# Large/raw research data
+data/gdc_quant/
+data/*.txt
+data/*.json
+data/*.gz
+data/*.fa
+data/*.gff3
+
+# Local database/export files
+*.sql
+*.csv
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Raw research/downloaded data
+data/
+mirdeep2/
+
+# Local research input/output files
+*.xlsx
+*.png
+*_ocr.txt
+significant_*.txt
+top20_*.txt
