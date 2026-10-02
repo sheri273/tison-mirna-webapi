@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import MiRNA, MiRNAExpression, MiRNADifferential
+from models import MiRNA, MiRNAExpression, MiRNADifferential, PatientClinical, SampleMetadata
 
 app = FastAPI(title="TISON miRNA API")
 
@@ -513,3 +513,165 @@ def export_differential_expression(
                 "attachment; filename=tcga_brca_mirna_differential.csv"
         }
     )
+
+
+# =========================
+# Clinical & Sample Endpoints
+# =========================
+
+@app.get("/patients")
+def get_patients(
+    limit: int = Query(50, ge=1, le=500),
+    db: Session = Depends(get_db)
+):
+    """Return patient clinical records."""
+    results = (
+        db.query(PatientClinical)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "count": len(results),
+        "patients": results
+    }
+
+
+@app.get("/patients/{patient_id}")
+def get_patient(
+    patient_id: str,
+    db: Session = Depends(get_db)
+):
+    """Return complete clinical information for one patient."""
+
+    patient = (
+        db.query(PatientClinical)
+        .filter(PatientClinical.patient_id == patient_id)
+        .first()
+    )
+
+    if patient is None:
+        return {
+            "patient_id": patient_id,
+            "message": "Patient not found"
+        }
+
+    return patient
+
+
+@app.get("/patients/{patient_id}/samples")
+def get_patient_samples(
+    patient_id: str,
+    db: Session = Depends(get_db)
+):
+    """Return all samples belonging to a patient."""
+
+    patient = (
+        db.query(PatientClinical)
+        .filter(PatientClinical.patient_id == patient_id)
+        .first()
+    )
+
+    if patient is None:
+        return {
+            "patient_id": patient_id,
+            "message": "Patient not found"
+        }
+
+    samples = (
+        db.query(SampleMetadata)
+        .filter(SampleMetadata.patient_id == patient_id)
+        .all()
+    )
+
+    return {
+        "patient_id": patient_id,
+        "sample_count": len(samples),
+        "samples": samples
+    }
+
+
+@app.get("/samples/{sample_id}/clinical")
+def get_sample_clinical(
+    sample_id: str,
+    db: Session = Depends(get_db)
+):
+    """Return sample information together with patient clinical data."""
+
+    sample = (
+        db.query(SampleMetadata)
+        .filter(SampleMetadata.sample_id == sample_id)
+        .first()
+    )
+
+    if sample is None:
+        return {
+            "sample_id": sample_id,
+            "message": "Sample not found"
+        }
+
+    patient = (
+        db.query(PatientClinical)
+        .filter(PatientClinical.patient_id == sample.patient_id)
+        .first()
+    )
+
+    return {
+        "sample": sample,
+        "patient_clinical": patient
+    }
+
+
+@app.get("/clinical/search")
+def search_clinical(
+    sex: str | None = None,
+    sample_type: str | None = None,
+    vital_status: str | None = None,
+    stage: str | None = None,
+    prior_treatment: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db)
+):
+    """Search patients using clinical characteristics."""
+
+    query = db.query(PatientClinical)
+
+    if sex:
+        query = query.filter(PatientClinical.sex == sex)
+
+    if vital_status:
+        query = query.filter(
+            PatientClinical.vital_status == vital_status
+        )
+
+    if stage:
+        query = query.filter(
+            PatientClinical.ajcc_pathologic_stage == stage
+        )
+
+    if prior_treatment:
+        query = query.filter(
+            PatientClinical.prior_treatment == prior_treatment
+        )
+
+    if sample_type:
+        query = query.join(
+            SampleMetadata,
+            PatientClinical.patient_id == SampleMetadata.patient_id
+        ).filter(
+            SampleMetadata.sample_type == sample_type
+        ).distinct()
+
+    results = query.limit(limit).all()
+
+    return {
+        "filters": {
+            "sex": sex,
+            "sample_type": sample_type,
+            "vital_status": vital_status,
+            "stage": stage,
+            "prior_treatment": prior_treatment
+        },
+        "count": len(results),
+        "patients": results
+    }
