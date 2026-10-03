@@ -1,3 +1,4 @@
+import os
 import statistics
 from scipy.stats import mannwhitneyu
 import math
@@ -12,7 +13,7 @@ app = FastAPI(title="TISON miRNA API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=os.getenv("FRONTEND_URL", "http://localhost:5173").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
